@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Speedometer</title>
+
+    <style>
+        body {
+            background-color: black;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .speedometer {
+            text-align: center;
+        }
+
+        #speed {
+            font-size: 100px;
+            font-weight: bold;
+        }
+
+        #unit {
+            font-size: 32px;
+            margin-top: -10px;
+        }
+
+        #status {
+            margin-top: 20px;
+            font-size: 16px;
+            color: #00aa00;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="speedometer">
+        <div id="speed">0</div>
+        <div id="unit">MPH</div>
+        <div id="status">Waiting for GPS...</div>
+    </div>
+
+    <script>
+        const speedDisplay = document.getElementById("speed");
+        const statusDisplay = document.getElementById("status");
+
+        // Check if GPS is supported
+        if ("geolocation" in navigator) {
+
+            navigator.geolocation.watchPosition(
+                (position) => {
+                    // Speed comes in meters per second (m/s)
+                    let speedMS = position.coords.speed;
+
+                    if (speedMS === null) {
+                        speedDisplay.textContent = "0";
+                        statusDisplay.textContent = "No movement detected";
+                        return;
+                    }
+
+                    // Convert m/s to MPH
+                    let speedMPH = speedMS * 2.23694;
+
+                    speedDisplay.textContent = Math.round(speedMPH);
+                    statusDisplay.textContent = "GPS Active";
+                },
+                (error) => {
+                    statusDisplay.textContent = "GPS Error: Permission denied";
+                },
+                {
+                    enableHighAccuracy: true,
+                    maximumAge: 1000,
+                    timeout: 5000
+                }
+            );
+
+        } else {
+            statusDisplay.textContent = "Geolocation not supported";
+        }
+    </script>
+
+</body>
+</html>
