@@ -3,86 +3,123 @@
 <head>
     <meta charset="UTF-8">
     <title>Speedometer</title>
-
     <style>
         body {
             background-color: black;
             color: #00ff00;
             font-family: 'Courier New', monospace;
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             height: 100vh;
             margin: 0;
         }
-
-        .speedometer {
-            text-align: center;
-        }
-
         #speed {
             font-size: 100px;
             font-weight: bold;
         }
-
         #unit {
             font-size: 32px;
             margin-top: -10px;
         }
-
         #status {
             margin-top: 20px;
             font-size: 16px;
             color: #00aa00;
         }
+        #fakeSlider {
+            width: 200px;
+            margin-top: 20px;
+        }
+        #startBtn {
+            font-size: 20px;
+            margin-top: 20px;
+            padding: 10px 20px;
+            cursor: pointer;
+            background-color: #003300;
+            color: #00ff00;
+            border: 2px solid #00ff00;
+            border-radius: 5px;
+        }
     </style>
 </head>
 <body>
-
-    <div class="speedometer">
+    <div id="speedometer">
         <div id="speed">0</div>
         <div id="unit">MPH</div>
-        <div id="status">Waiting for GPS...</div>
+        <div id="status">Press "Start Speedometer"</div>
+        <button id="startBtn">Start Speedometer</button>
+        <div>
+            <label>Fake Speed (for indoor testing): </label>
+            <input type="range" id="fakeSlider" min="0" max="120" value="0">
+        </div>
     </div>
 
     <script>
         const speedDisplay = document.getElementById("speed");
         const statusDisplay = document.getElementById("status");
+        const startBtn = document.getElementById("startBtn");
+        const fakeSlider = document.getElementById("fakeSlider");
 
-        // Check if GPS is supported
-        if ("geolocation" in navigator) {
+        let lastPosition = null;
+        let lastTime = null;
 
-            navigator.geolocation.watchPosition(
-                (position) => {
-                    // Speed comes in meters per second (m/s)
-                    let speedMS = position.coords.speed;
-
-                    if (speedMS === null) {
-                        speedDisplay.textContent = "0";
-                        statusDisplay.textContent = "No movement detected";
-                        return;
-                    }
-
-                    // Convert m/s to MPH
-                    let speedMPH = speedMS * 2.23694;
-
-                    speedDisplay.textContent = Math.round(speedMPH);
-                    statusDisplay.textContent = "GPS Active";
-                },
-                (error) => {
-                    statusDisplay.textContent = "GPS Error: Permission denied";
-                },
-                {
-                    enableHighAccuracy: true,
-                    maximumAge: 1000,
-                    timeout: 5000
-                }
-            );
-
-        } else {
-            statusDisplay.textContent = "Geolocation not supported";
+        function getDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371000; // meters
+            const toRad = deg => deg * Math.PI / 180;
+            const dLat = toRad(lat2 - lat1);
+            const dLon = toRad(lon2 - lon1);
+            const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2)) * Math.sin(dLon/2)**2;
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
         }
-    </script>
 
+        function updateSpeed(speedMPH) {
+            speedDisplay.textContent = Math.round(speedMPH);
+        }
+
+        // Fake speed slider
+        fakeSlider.addEventListener("input", () => {
+            updateSpeed(fakeSlider.value);
+            statusDisplay.textContent = "Using fake speed for testing";
+        });
+
+        startBtn.addEventListener("click", () => {
+            if ("geolocation" in navigator) {
+                navigator.geolocation.watchPosition(
+                    (position) => {
+                        const lat = position.coords.latitude;
+                        const lon = position.coords.longitude;
+                        const currentTime = Date.now();
+
+                        if (lastPosition && lastTime) {
+                            const distance = getDistance(
+                                lastPosition.lat, lastPosition.lon,
+                                lat, lon
+                            );
+
+                            const timeDiff = (currentTime - lastTime) / 1000;
+                            const speedMS = distance / timeDiff;
+                            const speedMPH = speedMS * 2.23694;
+                            updateSpeed(speedMPH);
+                            statusDisplay.textContent = "GPS Active";
+                        } else {
+                            statusDisplay.textContent = "Getting initial GPS lock...";
+                        }
+
+                        lastPosition = { lat, lon };
+                        lastTime = currentTime;
+                    },
+                    (error) => {
+                        statusDisplay.textContent = "GPS Error: " + error.message;
+                    },
+                    { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
+                );
+            } else {
+                statusDisplay.textContent = "Geolocation not supported";
+            }
+        });
+    </script>
 </body>
 </html>
